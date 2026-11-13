@@ -1,6 +1,6 @@
 /* オフライン用：一度ひらいたら端末に保存して、電波がなくても動くようにする */
-var CACHE = 'yasai-motte-v1';
-var FILES = ['./', 'index.html', 'art.js', 'bg.png', 'manifest.webmanifest', 'icon-180.png', 'icon-512.png'];
+var CACHE = 'yasai-motte-v2';
+var FILES = ['./', 'index.html', 'art.js', 'music.js', 'bg.png', 'manifest.webmanifest', 'icon-180.png', 'icon-512.png'];
 
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(FILES); }).then(function () { return self.skipWaiting(); }));

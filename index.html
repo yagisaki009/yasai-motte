@@ -54,19 +54,20 @@ body{font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Hiragino Kaku Goth
 <div id="app">
 <canvas id="cv"></canvas>
 <div id="pills">
-  <div class="pill win" id="bgm"><i class="fill"></i><span id="bgmText">♪ おんがく</span></div><div class="pill win" id="vol"><i class="fill"></i><span id="volText">🔉 ふつう</span></div>
+  <div class="pill win" id="bgm"><i class="fill"></i><span id="bgmText">♪ のはら</span></div><div class="pill win" id="vol"><i class="fill"></i><span id="volText">🔉 ふつう</span></div>
 </div>
 <div id="start">
   <div id="sBox" class="win">
     <div id="sTitle">やさい もってって！</div>
     <div id="sSub">はたけに どうぶつが きたら タッチ！<br>やさいを もって いくよ</div>
     <div id="sGo">▶ タップで はじめる</div>
-    <div id="hint">音が出ないときは、消音（マナーモード）をオフにして音量を上げてください。<br>右上のボタンは長押しで切りかわります。</div>
+    <div id="hint">音が出ないときは、消音（マナーモード）をオフにして音量を上げてください。<br>右上のボタンは長押しで切りかわります（音楽：のはら → モーツァルト → なし）。</div>
   </div>
 </div>
 </div>
 
 <script src="art.js"></script>
+<script src="music.js"></script>
 <script>
 (function () {
 /* ===== 古いiPad(iOS 9〜)でも動くよう ES5 だけで書いています ===== */
@@ -329,9 +330,9 @@ function drawHud() {
 /* ---------- 音（ぜんぶその場で合成。ファミコン・スーファミ風） ---------- */
 var AC = window.AudioContext || window.webkitAudioContext;
 var ctx = null, master = null, sfxBus = null, bgmBus = null, unlocked = false, noiseBuf = null;
-var VOLS = [0.35, 0.65, 1.0], VOL_ICON = ['🔈', '🔉', '🔊'], VOL_NAME = ['ちいさい', 'ふつう', 'おおきい'], volIdx = 1, bgmOn = true;
+var VOLS = [0.35, 0.65, 1.0], VOL_ICON = ['🔈', '🔉', '🔊'], VOL_NAME = ['ちいさい', 'ふつう', 'おおきい'], volIdx = 1, bgmSel = 'nohara';
 try { var sv = localStorage.getItem('yasai-vol'); if (sv !== null && VOLS[+sv] !== undefined) volIdx = +sv; } catch (e) {}
-try { if (localStorage.getItem('yasai-bgm') === '0') bgmOn = false; } catch (e) {}
+try { var sb = localStorage.getItem('yasai-bgm'); if (sb === '0' || sb === 'off') bgmSel = 'off'; else if (sb === 'k545') bgmSel = 'k545'; } catch (e) {}
 function unlock() {
   if (!AC) return;
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e0) {}
@@ -342,7 +343,7 @@ function unlock() {
     master = ctx.createGain(); master.gain.value = VOLS[volIdx];
     master.connect(comp); comp.connect(ctx.destination);
     sfxBus = ctx.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
-    bgmBus = ctx.createGain(); bgmBus.gain.value = bgmOn ? 0.32 : 0; bgmBus.connect(master);
+    bgmBus = ctx.createGain(); bgmBus.gain.value = 0.32; bgmBus.connect(master);
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
     var d = noiseBuf.getChannelData(0);
     for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -367,12 +368,12 @@ function tone(bus, type, f, t, dur, vol, slide) {
   o.connect(gn); gn.connect(bus);
   o.start(t); o.stop(t + dur + 0.02);
 }
-function noise(t, dur, vol, freq) {
+function noise(t, dur, vol, freq, bus) {
   if (!ctx) return;
   var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), gn = ctx.createGain();
   s.buffer = noiseBuf; f.type = 'lowpass'; f.frequency.value = freq || 1200;
   gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  s.connect(f); f.connect(gn); gn.connect(sfxBus); s.start(t); s.stop(t + dur + 0.02);
+  s.connect(f); f.connect(gn); gn.connect(bus || sfxBus); s.start(t); s.stop(t + dur + 0.02);
 }
 function T() { return ctx ? ctx.currentTime + 0.01 : 0; }
 function sfxPuff() { if (!ctx) return; var t = T(); noise(t, 0.16, 0.35, 900); tone(sfxBus, 'triangle', 180, t, 0.1, 0.25, 90); }
@@ -387,31 +388,71 @@ function sfxJingle() {
   for (var i = 0; i < n.length; i++) { if (n[i]) { tone(sfxBus, 'square', mtof(n[i]), tt, d[i] * 0.95, 0.08); tone(sfxBus, 'triangle', mtof(n[i] - 12), tt, d[i] * 0.95, 0.16); } tt += d[i]; }
 }
 
-/* BGM：のんびりした8小節（オリジナル）。メロディーは矩形波、ベースは三角波 */
-var MEL = [64,67,72,0,67,64,60,0, 65,69,72,0,69,65,0,0, 67,71,74,0,72,71,69,67, 64,0,67,0,60,0,0,0,
-           69,72,76,0,74,72,69,0, 65,69,72,0,69,67,65,0, 62,64,65,67,69,71,72,74, 72,0,67,0,64,0,60,0];
-var BASS = [48,55,48,55, 41,48,41,48, 43,50,43,50, 48,55,48,43, 45,52,45,52, 41,48,41,48, 43,50,43,47, 48,43,48,0];
-var STEP = 60 / 112 / 2, bgmT = 0, bgmI = 0, bgmTimer = null;
+/* ---------- BGM ----------
+   曲は「開始, 長さ, 音の高さ, 強さ, 声部」の並び（長さの単位は 1拍 = div）。
+   右上の「♪」を長押しで のはら（オリジナル）→ モーツァルト → なし */
+var SONGS = {};
+/* のはら：のんびりした8小節（オリジナル）。メロディーは矩形波、ベースは三角波 */
+(function () {
+  var MEL = [64,67,72,0,67,64,60,0, 65,69,72,0,69,65,0,0, 67,71,74,0,72,71,69,67, 64,0,67,0,60,0,0,0,
+             69,72,76,0,74,72,69,0, 65,69,72,0,69,67,65,0, 62,64,65,67,69,71,72,74, 72,0,67,0,64,0,60,0];
+  var BASS = [48,55,48,55, 41,48,41,48, 43,50,43,50, 48,55,48,43, 45,52,45,52, 41,48,41,48, 43,50,43,47, 48,43,48,0];
+  var N = [], i;
+  for (i = 0; i < MEL.length; i++) {
+    if (i % 4 === 2) N.push(i, 1, 0, 50, 2);                       /* ハイハット */
+    if (i % 2 === 0 && BASS[i / 2]) N.push(i, 2, BASS[i / 2], 100, 1);
+    if (MEL[i]) { var len = 1; while (len < 3 && MEL[(i + len) % MEL.length] === 0 && (i + len) % 8 !== 0) len++; N.push(i, len, MEL[i], 100, 0); }
+  }
+  SONGS.nohara = { bpm: 112, div: 2, end: MEL.length, gap: 0, notes: N, inst: function (bus, t, d, n, v, voice) {
+    if (voice === 0) { tone(bus, 'square', mtof(n), t, d * 0.9, 0.07); tone(bus, 'triangle', mtof(n + 12), t, d * 0.6, 0.03); }
+    else if (voice === 1) tone(bus, 'triangle', mtof(n), t, d * 0.9, 0.22);
+    else noise(t, 0.04, 0.05, 6000, bus);
+  } };
+})();
+/* モーツァルト ピアノソナタ ハ長調 K.545 第1楽章（music.js）。右手は矩形波＋三角波、左手は三角波 */
+if (window.MUSIC && window.MUSIC.k545) {
+  var MZ = window.MUSIC.k545;
+  SONGS.k545 = { bpm: MZ.bpm, div: MZ.div, end: MZ.end, gap: MZ.div * 2, notes: MZ.notes, inst: function (bus, t, d, n, v, voice) {
+    var dd = Math.max(0.06, d * 0.92), k = 0.55 + 0.45 * v / 127;
+    if (voice === 0) { tone(bus, 'square', mtof(n), t, dd, 0.045 * k); tone(bus, 'triangle', mtof(n), t, dd, 0.07 * k); }
+    else tone(bus, 'triangle', mtof(n), t, dd, 0.13 * k);
+  } };
+}
+var BGM_ORDER = ['nohara', 'k545', 'off'], BGM_NAME = { nohara: '♪ のはら', k545: '♪ モーツァルト', off: '♪ なし' };
+var song = null, songPos = 0, songT0 = 0, songGain = null, bgmTimer = null;
+function songStart(name) {
+  if (songGain) {
+    var old = songGain;
+    try { old.gain.setTargetAtTime(0, ctx.currentTime, 0.04); } catch (e) {}
+    setTimeout(function () { try { old.disconnect(); } catch (e2) {} }, 500);
+    songGain = null;
+  }
+  song = null;
+  if (!ctx || !SONGS[name]) return;
+  song = SONGS[name]; songPos = 0; songT0 = ctx.currentTime + 0.15;
+  songGain = ctx.createGain(); songGain.gain.value = 1; songGain.connect(bgmBus);
+}
 function bgmTick() {
-  if (!ctx) return;
-  if (bgmT < ctx.currentTime) bgmT = ctx.currentTime + 0.05;
-  while (bgmT < ctx.currentTime + 0.25) {
-    var m = MEL[bgmI % MEL.length];
-    if (m) {
-      var len = 1; while (len < 3 && MEL[(bgmI + len) % MEL.length] === 0 && (bgmI + len) % 8 !== 0) len++;
-      tone(bgmBus, 'square', mtof(m), bgmT, STEP * len * 0.9, 0.07);
-      tone(bgmBus, 'triangle', mtof(m + 12), bgmT, STEP * len * 0.6, 0.03);
-    }
-    if (bgmI % 2 === 0) { var b = BASS[(bgmI / 2) % BASS.length]; if (b) tone(bgmBus, 'triangle', mtof(b), bgmT, STEP * 1.8, 0.22); }
-    if (bgmI % 4 === 2) noise(bgmT, 0.04, 0.05, 6000);
-    bgmT += STEP; bgmI++;
+  if (!ctx || !song) return;
+  var N = song.notes, spu = 60 / song.bpm / song.div, now2 = ctx.currentTime, guard = 0;
+  while (guard++ < 400) {
+    if (songPos >= N.length) { songT0 += (song.end + song.gap) * spu; songPos = 0; }
+    var t = songT0 + N[songPos] * spu;
+    /* 画面を閉じていたなどで遅れたら、いまの時刻に合わせなおす */
+    if (t < now2 - 0.5) { songT0 += now2 + 0.05 - t; t = now2 + 0.05; }
+    if (t > now2 + 0.3) break;
+    song.inst(songGain, t, N[songPos + 1] * spu, N[songPos + 2], N[songPos + 3], N[songPos + 4]);
+    songPos += 5;
   }
 }
-function startBgm() { if (!bgmTimer) bgmTimer = setInterval(bgmTick, 60); }
+function startBgm() {
+  if (!bgmTimer) bgmTimer = setInterval(bgmTick, 60);
+  if (!song) songStart(bgmSel);
+}
 
 /* ---------- 右上のボタン（長押しで切りかえ） ---------- */
 function showVol() { $('volText').textContent = VOL_ICON[volIdx] + ' ' + VOL_NAME[volIdx]; }
-function showBgm() { $('bgmText').textContent = bgmOn ? '♪ おんがく' : '♪ なし'; $('bgm').className = 'pill win' + (bgmOn ? '' : ' off'); }
+function showBgm() { $('bgmText').textContent = BGM_NAME[bgmSel]; $('bgm').className = 'pill win' + (bgmSel === 'off' ? ' off' : ''); }
 var holdTimer = null, holdEl = null;
 function holdPress(el) {
   if (holdTimer) return;
@@ -424,9 +465,12 @@ function holdPress(el) {
       if (master) master.gain.value = VOLS[volIdx];
       sfxHop();
     } else {
-      bgmOn = !bgmOn; showBgm();
-      try { localStorage.setItem('yasai-bgm', bgmOn ? '1' : '0'); } catch (e) {}
-      if (bgmBus) bgmBus.gain.value = bgmOn ? 0.32 : 0;
+      var bi = 0; for (var q = 0; q < BGM_ORDER.length; q++) if (BGM_ORDER[q] === bgmSel) bi = q;
+      bgmSel = BGM_ORDER[(bi + 1) % BGM_ORDER.length];
+      if (bgmSel === 'k545' && !SONGS.k545) bgmSel = 'off';
+      showBgm();
+      try { localStorage.setItem('yasai-bgm', bgmSel); } catch (e) {}
+      if (started) songStart(bgmSel);
     }
     el.className = el.className.replace(' holding', '');
     holdEl = null;
@@ -526,6 +570,7 @@ window.__yasai = {
   state: function () { return { animals: animals.map(function (a) { return { kind: a.kind, x: Math.round(a.x), y: Math.round(a.y), state: a.state, inField: inField(a), veg: a.veg }; }), given: given, LW: LW, LH: LH, SC: SC, cam: [camX, camY] }; },
   tapAnimal: function (i) { var a = animals[i]; if (a) tapAt(a.x, a.y - a.K.h / 2); },
   tapWorld: tapAt,
+  bgm: function () { return { sel: bgmSel, playing: !!song, pos: songPos }; },
   step: function (sec) { for (var t = 0; t < sec; t += 1 / 60) update(1 / 60); render(); }
 };
 })();
