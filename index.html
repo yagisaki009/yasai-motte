@@ -89,6 +89,10 @@ body{font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Hiragino Kaku Goth
 (function () {
 /* ===== 古いiPad(iOS 9〜)でも動くよう ES5 だけで書いています ===== */
 var A = window.ART, BW = A.W, BH = A.H, CX = A.CX, CY = A.CY;
+/* 版ごとの設定（シューベルト版などは、組み立てのときに window.VARIANT を入れる） */
+var V = window.VARIANT || {}, KEY = V.key || 'yasai';
+/* 生えてくるもの：ふつうはやさい。シューベルト版では、ときどきドクロ */
+function newVeg() { return (V.skull && Math.random() < V.skull) ? 'dokuro' : pick(A.yasai); }
 var FX0 = A.field[0], FX1 = A.field[1], FY0 = A.field[2], FY1 = A.field[3];
 function $(id) { return document.getElementById(id); }
 function rand(a, b) { return a + Math.random() * (b - a); }
@@ -132,7 +136,29 @@ var bg = new Image(); bg.src = 'bg.png';
 var KINDS = {
   risu: { f: ['risu1', 'risu2'], w: 16, h: 14, speed: 64, bob: 3, fps: 9, head: [12, 5], sh: 's', weight: 4 },
   saru: { f: ['saru1', 'saru2'], w: 16, h: 14, speed: 54, bob: 2, fps: 8, head: [11, 1], sh: 's', weight: 4 },
-  kame: { f: ['kame1', 'kame2'], w: 20, h: 10, speed: 24, bob: 0, fps: 4, head: [7, 1], sh: 'm', weight: 2 }
+  kame: { f: ['kame1', 'kame2'], w: 20, h: 10, speed: 24, bob: 0, fps: 4, head: [7, 1], sh: 'm', weight: 2 },
+  /* いぬ・ねこ：かめより少し速い。やさいは頭の上に */
+  inu: { f: ['inu1', 'inu2'], w: 16, h: 12, speed: 31, bob: 1, fps: 6, head: [12, 2], sh: 's', weight: 3 },
+  neko: { f: ['neko1', 'neko2'], w: 16, h: 12, speed: 30, bob: 1, fps: 6, head: [12, 2], sh: 's', weight: 3 },
+  /* イノシシ：ずんずん走る（犬・猫より速め）。やさいは背中に */
+  inoshishi: { f: ['inoshishi1', 'inoshishi2'], w: 18, h: 12, speed: 44, bob: 1, fps: 8, head: [9, 1], sh: 'm', weight: 3 },
+  /* ひつじ・やぎ・アライグマ・キツネ・たぬき・おおかみ */
+  hitsuji: { f: ['hitsuji1', 'hitsuji2'], w: 18, h: 12, speed: 34, bob: 1, fps: 6, head: [7, 0], sh: 'm', weight: 2 },
+  yagi: { f: ['yagi1', 'yagi2'], w: 16, h: 14, speed: 40, bob: 1, fps: 7, head: [13, 2], sh: 's', weight: 2 },
+  araiguma: { f: ['araiguma1', 'araiguma2'], w: 16, h: 12, speed: 50, bob: 1, fps: 8, head: [12, 2], sh: 's', weight: 2 },
+  kitsune: { f: ['kitsune1', 'kitsune2'], w: 16, h: 13, speed: 56, bob: 1, fps: 9, head: [12, 3], sh: 's', weight: 2 },
+  tanuki: { f: ['tanuki1', 'tanuki2'], w: 20, h: 12, speed: 36, bob: 1, fps: 7, head: [16, 2], sh: 's', weight: 2 },
+  ookami: { f: ['ookami1', 'ookami2'], w: 16, h: 12, speed: 58, bob: 1, fps: 9, head: [12, 2], sh: 'm', weight: 2 },
+  /* 子ゾウ：のっしのっし（かめより少し速い）。やさいは背中に */
+  zou: { f: ['zou1', 'zou2'], w: 20, h: 13, speed: 28, bob: 1, fps: 5, head: [5, 0], sh: 'm', weight: 2 },
+  /* 人間の子ども：やさいは頭の上に */
+  kodomo: { f: ['kodomo1', 'kodomo2'], w: 13, h: 16, speed: 46, bob: 1, fps: 8, head: [6, 0], sh: 's', weight: 2 },
+  /* カバ：のっそり。やさいは背中に */
+  kaba: { f: ['kaba1', 'kaba2'], w: 20, h: 12, speed: 26, bob: 1, fps: 5, head: [7, 1], sh: 'm', weight: 2 },
+  /* 女の子：黒いロングヘア、ワンピース。やさいは頭の上に */
+  onnanoko: { f: ['onnanoko1', 'onnanoko2'], w: 13, h: 20, speed: 44, bob: 1, fps: 8, head: [6, 0], sh: 's', weight: 2 },
+  /* おさげの女の子 */
+  osage: { f: ['osage1', 'osage2'], w: 15, h: 20, speed: 42, bob: 1, fps: 8, head: [8, 0], sh: 's', weight: 2 }
 };
 var KIND_BAG = [];
 for (var kn in KINDS) if (KINDS.hasOwnProperty(kn)) for (var kw = 0; kw < KINDS[kn].weight; kw++) KIND_BAG.push(kn);
@@ -140,7 +166,7 @@ for (var kn in KINDS) if (KINDS.hasOwnProperty(kn)) for (var kw = 0; kw < KINDS[
 /* ---------- はたけのやさい ---------- */
 var spots = [];
 for (var r = 0; r < A.ridges.length; r++) for (var s = 0; s < A.spotsX.length; s++)
-  spots.push({ x: A.spotsX[s], y: A.ridges[r] + 3, veg: pick(A.yasai), grow: 0, regrow: 0 });
+  spots.push({ x: A.spotsX[s], y: A.ridges[r] + 3, veg: newVeg(), grow: 0, regrow: 0 });
 
 /* ---------- 画面 ---------- */
 var app = $('app'), cv = $('cv'), g = cv.getContext('2d');
@@ -215,7 +241,7 @@ function tapAt(wx, wy) {
   var a2 = best;
   if (a2.state === 'run' && inField(a2)) {
     /* せいこう！ はたけのやさいを持っていく */
-    var sp = nearestSpot(a2), veg = sp ? sp.veg : pick(A.yasai);
+    var sp = nearestSpot(a2), veg = sp ? sp.veg : newVeg();
     a2.state = 'pick'; a2.t = 0; a2.hop = 0.01;
     fxs.push({ type: 'fly', veg: veg, x0: sp ? sp.x : a2.x, y0: sp ? sp.y : a2.y, a: a2, t: 0, dur: 0.38 });
     if (sp) { sp.veg = null; sp.regrow = rand(2.5, 4.5); }
@@ -254,7 +280,7 @@ function update(dt) {
   else if (nextSpawn <= 0) nextSpawn = 0.3;
   for (i = 0; i < spots.length; i++) {
     var sp = spots[i];
-    if (!sp.veg) { sp.regrow -= dt; if (sp.regrow <= 0) { sp.veg = pick(A.yasai); sp.grow = 0.01; } }
+    if (!sp.veg) { sp.regrow -= dt; if (sp.regrow <= 0) { sp.veg = newVeg(); sp.grow = 0.01; } }
     if (sp.grow > 0) { sp.grow += dt; if (sp.grow > 0.35) sp.grow = 0; }
     if (sp.wob > 0) { sp.wob += dt; if (sp.wob > 0.5) sp.wob = 0; }
   }
@@ -337,6 +363,7 @@ function render() {
       if (Math.floor(f.t * 8) % 2 === 0 || f.t < 0.4) blit(IMG.haato, Math.round(f.x - 3), Math.round(f.y - f.t * 10));
     }
   }
+  if (V.tint) { lg.fillStyle = V.tint; lg.fillRect(0, 0, LW, LH); }
   drawHud();
   /* 低い解像度の絵を、ドットのまま大きくして画面へ */
   g.fillStyle = '#62a83c'; g.fillRect(0, 0, cv.width, cv.height);
@@ -364,9 +391,9 @@ function drawHud() {
 /* ---------- 音（ぜんぶその場で合成。ファミコン・スーファミ風） ---------- */
 var AC = window.AudioContext || window.webkitAudioContext;
 var ctx = null, master = null, sfxBus = null, bgmBus = null, unlocked = false, noiseBuf = null;
-var VOLS = [0.35, 0.65, 1.0], VOL_ICON = ['🔈', '🔉', '🔊'], VOL_NAME = ['ちいさい', 'ふつう', 'おおきい'], volIdx = 1, bgmSel = 'nohara';
-try { var sv = localStorage.getItem('yasai-vol'); if (sv !== null && VOLS[+sv] !== undefined) volIdx = +sv; } catch (e) {}
-try { var sb = localStorage.getItem('yasai-bgm'); if (sb === '0' || sb === 'off') bgmSel = 'off'; else if (sb) bgmSel = sb; } catch (e) {}
+var VOLS = [0.35, 0.65, 1.0], VOL_ICON = ['🔈', '🔉', '🔊'], VOL_NAME = ['ちいさい', 'ふつう', 'おおきい'], volIdx = 1, bgmSel = V.firstSong || 'nohara';
+try { var sv = localStorage.getItem(KEY + '-vol'); if (sv !== null && VOLS[+sv] !== undefined) volIdx = +sv; } catch (e) {}
+try { var sb = localStorage.getItem(KEY + '-bgm'); if (sb === '0' || sb === 'off') bgmSel = 'off'; else if (sb) bgmSel = sb; } catch (e) {}
 function unlock() {
   if (!AC) return;
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e0) {}
@@ -450,7 +477,10 @@ function missAt(wx, wy) {
     if (Math.abs(wx - sp.x) <= 6 && wy >= sp.y - 11 && wy <= sp.y + 2) {
       if (sp.veg) {
         sp.wob = 0.01;
-        if (ctx) { var t0 = T(), f0 = mtof(VEG_NOTE[sp.veg] || 60); tone(sfxBus, 'sine', f0, t0, 0.14, 0.35, f0 * 1.6); tone(sfxBus, 'triangle', f0 * 2, t0, 0.06, 0.08); }
+        if (ctx && sp.veg === 'dokuro') {   /* ドクロ：カタカタ（骨の音） */
+          var t0 = T();
+          for (var c = 0; c < 5; c++) { tone(sfxBus, 'square', rand(900, 1500), t0 + c * 0.055 + rand(0, 0.015), 0.025, 0.07); noise(t0 + c * 0.055, 0.02, 0.12, 2500); }
+        } else if (ctx) { var t0 = T(), f0 = mtof(VEG_NOTE[sp.veg] || 60); tone(sfxBus, 'sine', f0, t0, 0.14, 0.35, f0 * 1.6); tone(sfxBus, 'triangle', f0 * 2, t0, 0.06, 0.08); }
         fxs.push({ type: 'onpu', x: sp.x + 4, y: sp.y - 8, t: 0 });
       } else {
         if (ctx) tone(sfxBus, 'sine', 1400, T(), 0.06, 0.12, 2200);
@@ -507,6 +537,11 @@ function missAt(wx, wy) {
   } else if (m === 15) {    /* まど：チン */
     if (ctx) { var g1 = n(93); tone(sfxBus, 'sine', g1, t, 0.45, 0.12); tone(sfxBus, 'sine', g1 * 2.4, t, 0.2, 0.04); }
     star(wx, wy - 2); star(wx + 2, wy);
+  } else if (m === 17) {    /* 池から出た足：ばしゃっ */
+    if (ctx) { bandNoise(t, 0.3, 0.32, 3000, 0.7, 'highpass'); tone(sfxBus, 'sine', 110, t, 0.22, 0.3, 65); }
+    fxs.push({ type: 'ripple', x: wx, y: wy + 3, t: 0 }); fxs.push({ type: 'ripple', x: wx, y: wy + 3, t: 0.25 });
+  } else if (m === 18) {    /* 顔の見えない少女：低い音が2つ、ゆれながら下がっていく。ささやくような音 */
+    if (ctx) { var e1 = n(50); tone(sfxBus, 'sine', e1, t, 1.3, 0.13, e1 * 0.7); tone(sfxBus, 'sine', e1 * 1.06, t, 1.3, 0.1, e1 * 0.72); bandNoise(t + 0.1, 0.9, 0.07, 900, 4); }
   } else {                  /* かかし：ぼよーん */
     if (ctx) { var h1 = n(55); tone(sfxBus, 'sine', h1, t, 0.12, 0.3, h1 * 1.3); tone(sfxBus, 'sine', h1 * 1.3, t + 0.12, 0.12, 0.25, h1 * 0.9); tone(sfxBus, 'sine', h1 * 0.9, t + 0.24, 0.18, 0.2, h1 * 1.1); }
     fxs.push({ type: 'onpu', x: wx, y: wy, t: 0 });
@@ -564,7 +599,8 @@ var BGM_ORDER = ['nohara', 'k545', 'turuko', 'queen', 'fuyu', 'netsujo', 'tell',
 var BGM_NAME = { nohara: ['のはら', 'オリジナル'], k545: ['ピアノソナタ K.545', 'モーツァルト'], turuko: ['トルコ行進曲', 'モーツァルト'],
   queen: ['夜の女王のアリア', 'モーツァルト'], netsujo: ['ピアノソナタ「熱情」第3楽章', 'ベートーヴェン'], tell: ['ウィリアム・テル序曲 スイス軍の行進', 'ロッシーニ'], fuyu: ['四季より「冬」', 'ヴィヴァルディ'], kankan: ['天国と地獄', 'オッフェンバック'],
   kumabachi: ['熊蜂の飛行', 'リムスキー＝コルサコフ'], raimei: ['ポルカ「雷鳴と電光」', 'J.シュトラウス2世'], chopin: ['練習曲 Op.10-4', 'ショパン'], trepak: ['くるみ割り人形「トレパーク」', 'チャイコフスキー'], zapateado: ['サパテアード', 'サラサーテ'], nobara: ['野ばら', 'シューベルト'], serenade: ['セレナーデ（リスト編）', 'シューベルト'], masu: ['ピアノ五重奏曲「鱒」第4楽章', 'シューベルト'], gakkyo: ['楽興の時 第3番', 'シューベルト'], sokkyo899: ['即興曲 Op.90-3', 'シューベルト'], rosamunde: ['「ロザムンデ」間奏曲 第3番', 'シューベルト'], sokkyo935: ['即興曲 Op.142-3', 'シューベルト'], fugue: ['小フーガ ト短調', 'J.S.バッハ'], off: ['なし', ''] };
-if (bgmSel !== 'off' && !SONGS[bgmSel]) bgmSel = 'nohara';
+if (V.songs) BGM_ORDER = V.songs.concat(['off']);
+if (bgmSel !== 'off' && (!SONGS[bgmSel] || BGM_ORDER.indexOf(bgmSel) < 0)) bgmSel = V.firstSong || 'nohara';
 var song = null, songPos = 0, songT0 = 0, songGain = null, bgmTimer = null;
 function songStart(name) {
   if (songGain) {
@@ -611,7 +647,7 @@ function holdPress(el) {
     holdTimer = null;
     if (el.id === 'vol') {
       volIdx = (volIdx + 1) % VOLS.length; showVol();
-      try { localStorage.setItem('yasai-vol', volIdx); } catch (e) {}
+      try { localStorage.setItem(KEY + '-vol', volIdx); } catch (e) {}
       if (master) master.gain.value = VOLS[volIdx];
       sfxHop();
     } else {
@@ -652,7 +688,7 @@ function openList() {
 function closeList() { listOpen = false; songsEl.className = 'win'; }
 function pickSong(k) {
   bgmSel = k; showBgm();
-  try { localStorage.setItem('yasai-bgm', bgmSel); } catch (e) {}
+  try { localStorage.setItem(KEY + '-bgm', bgmSel); } catch (e) {}
   if (started) songStart(bgmSel);
   closeList();
 }

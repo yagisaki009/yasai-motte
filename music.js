@@ -1,5 +1,5 @@
 /* BGM：クラシックの楽譜データから作った音符の並び（tools/build_yasai.py）。
-   K.545・夜の女王のアリア・四季「冬」・トルコ行進曲・熱情・雷鳴と電光・野ばらは Mutopia Project の楽譜（K545-1.mid / MF14-ArieScore.mid / winter-score.mid / KV331_3_RondoAllaTurca.mid / LVB_Sonate_57_3.mid）から。
+   K.545・夜の女王のアリア・四季「冬」・トルコ行進曲・熱情・雷鳴と電光・野ばらは Mutopia Project の楽譜から。
    ショパン 練習曲 Op.10-4：Noctave edition / First Editions of Fryderyk Chopin music (c) 2017-2021 The Fryderyk Chopin Institute (nifc.pl), chopinscores.org、CC BY 4.0。
    トレパーク：Michel Rondeau の金管編曲（2018）、CC BY-SA 4.0、IMSLP #553297。
    サパテアード：Cellofun.eu のチェロとピアノ版、CC0 1.0。
