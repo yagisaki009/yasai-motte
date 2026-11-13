@@ -43,12 +43,14 @@ body{font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Hiragino Kaku Goth
   -webkit-animation:blink 1s steps(2) infinite;animation:blink 1s steps(2) infinite;}
 @-webkit-keyframes blink{50%{opacity:0}}
 @keyframes blink{50%{opacity:0}}
+#credit{font-size:10px;line-height:1.5;opacity:.6;margin-top:10px;}
 #hint{font-size:12px;line-height:1.7;opacity:.8;margin-top:12px;}
 #app.short #sBox{width:380px;margin-left:-190px;padding:14px 14px 14px;}
 #app.short #sTitle{font-size:26px;}
 #app.short #sSub{font-size:14px;margin-top:6px;}
 #app.short #sGo{font-size:18px;margin-top:10px;}
 #app.short #hint{display:none;}
+#app.short #credit{font-size:9px;margin-top:6px;}
 </style>
 </head>
 <body>
@@ -62,6 +64,7 @@ body{font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Hiragino Kaku Goth
     <div id="sTitle">やさい もってって！</div>
     <div id="sSub">はたけに どうぶつが きたら タッチ！<br>やさいを もって いくよ</div>
     <div id="sGo">▶ タップで はじめる</div>
+    <div id="credit">音楽の楽譜データ：Mutopia Project（K.545・冬は CC BY-SA 3.0）、ショパン 練習曲 Op.10-4 は Noctave edition / The Fryderyk Chopin Institute, chopinscores.org（CC BY 4.0）、トレパークは Michel Rondeau の金管編曲（CC BY-SA 4.0、IMSLP）、熊蜂の飛行は Noctave（CC0）、サパテアードは Cellofun.eu（CC0）、ウィリアム・テルは L. ニーデルマイヤー編の古い楽譜から</div>
     <div id="hint">音が出ないときは、消音（マナーモード）をオフにして音量を上げてください。<br>右上のボタンは長押しで切りかわります（音楽の切りかえ）。</div>
   </div>
 </div>
@@ -379,14 +382,16 @@ function noise(t, dur, vol, freq, bus) {
 function T() { return ctx ? ctx.currentTime + 0.01 : 0; }
 function sfxPuff() { if (!ctx) return; var t = T(); noise(t, 0.16, 0.35, 900); tone(sfxBus, 'triangle', 180, t, 0.1, 0.25, 90); }
 function sfxHop() { if (!ctx) return; tone(sfxBus, 'square', 330, T(), 0.16, 0.12, 880); }
+/* やさいをとったときの音（ピロリン・ファンファーレ）は控えめに：もとの5分の1 */
+var GET_VOL = 0.2;
 function sfxPick() {
   if (!ctx) return; var t = T(), n = [76, 79, 84, 88];
-  for (var i = 0; i < n.length; i++) { tone(sfxBus, 'square', mtof(n[i]), t + i * 0.055, 0.09, 0.11); tone(sfxBus, 'triangle', mtof(n[i]), t + i * 0.055, 0.12, 0.2); }
-  tone(sfxBus, 'sine', 500, t + 0.3, 0.12, 0.25, 1000);
+  for (var i = 0; i < n.length; i++) { tone(sfxBus, 'square', mtof(n[i]), t + i * 0.055, 0.09, 0.11 * GET_VOL); tone(sfxBus, 'triangle', mtof(n[i]), t + i * 0.055, 0.12, 0.2 * GET_VOL); }
+  tone(sfxBus, 'sine', 500, t + 0.3, 0.12, 0.25 * GET_VOL, 1000);
 }
 function sfxJingle() {
   if (!ctx) return; var t = T(), n = [72, 76, 79, 84, 0, 79, 84], d = [0.09, 0.09, 0.09, 0.18, 0.06, 0.09, 0.3], tt = t;
-  for (var i = 0; i < n.length; i++) { if (n[i]) { tone(sfxBus, 'square', mtof(n[i]), tt, d[i] * 0.95, 0.08); tone(sfxBus, 'triangle', mtof(n[i] - 12), tt, d[i] * 0.95, 0.16); } tt += d[i]; }
+  for (var i = 0; i < n.length; i++) { if (n[i]) { tone(sfxBus, 'square', mtof(n[i]), tt, d[i] * 0.95, 0.08 * GET_VOL); tone(sfxBus, 'triangle', mtof(n[i] - 12), tt, d[i] * 0.95, 0.16 * GET_VOL); } tt += d[i]; }
 }
 
 /* ---------- BGM ----------
@@ -422,11 +427,11 @@ if (window.MUSIC) for (var mk in window.MUSIC) if (window.MUSIC.hasOwnProperty(m
   var MZ = window.MUSIC[mk];
   SONGS[mk] = { bpm: MZ.bpm, div: MZ.div, end: MZ.end, gap: MZ.gap, notes: MZ.notes, inst: classicInst };
 }
-var BGM_ORDER = ['nohara', 'k545', 'turuko', 'queen', 'fuyu', 'netsujo', 'tell', 'kumabachi', 'raimei', 'kankan', 'off'];
+var BGM_ORDER = ['nohara', 'k545', 'turuko', 'queen', 'fuyu', 'netsujo', 'tell', 'kumabachi', 'raimei', 'chopin', 'trepak', 'zapateado', 'kankan', 'off'];
 /* ボタンに出す名前：[曲名, 作曲者] */
 var BGM_NAME = { nohara: ['のはら', 'オリジナル'], k545: ['ピアノソナタ K.545', 'モーツァルト'], turuko: ['トルコ行進曲', 'モーツァルト'],
   queen: ['夜の女王のアリア', 'モーツァルト'], netsujo: ['ピアノソナタ「熱情」第3楽章', 'ベートーヴェン'], tell: ['ウィリアム・テル序曲 スイス軍の行進', 'ロッシーニ'], fuyu: ['四季より「冬」', 'ヴィヴァルディ'], kankan: ['天国と地獄', 'オッフェンバック'],
-  kumabachi: ['熊蜂の飛行', 'リムスキー＝コルサコフ'], raimei: ['ポルカ「雷鳴と電光」', 'J.シュトラウス2世'], off: ['なし', ''] };
+  kumabachi: ['熊蜂の飛行', 'リムスキー＝コルサコフ'], raimei: ['ポルカ「雷鳴と電光」', 'J.シュトラウス2世'], chopin: ['練習曲 Op.10-4', 'ショパン'], trepak: ['くるみ割り人形「トレパーク」', 'チャイコフスキー'], zapateado: ['サパテアード', 'サラサーテ'], off: ['なし', ''] };
 if (bgmSel !== 'off' && !SONGS[bgmSel]) bgmSel = 'nohara';
 var song = null, songPos = 0, songT0 = 0, songGain = null, bgmTimer = null;
 function songStart(name) {
