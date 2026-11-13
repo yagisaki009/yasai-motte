@@ -1,0 +1,11 @@
+CACHE MANIFEST
+# やさい もってって！ v1（iOS 11.2以前のiPad用）
+index.html
+art.js
+bg.png
+manifest.webmanifest
+icon-180.png
+icon-512.png
+
+NETWORK:
+*
