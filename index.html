@@ -31,6 +31,7 @@ body{font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Hiragino Kaku Goth
 .pill.holding .fill{width:100%;-webkit-transition:width .9s linear;transition:width .9s linear;}
 .pill span{position:relative;}
 .pill.off{opacity:.55;}
+.pill small{font-size:11px;font-weight:normal;opacity:.85;}
 
 #start{position:absolute;left:0;top:0;right:0;bottom:0;z-index:10;text-align:center;background:rgba(16,22,60,.35);
   -webkit-transition:opacity .35s;transition:opacity .35s;}
@@ -61,7 +62,7 @@ body{font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Hiragino Kaku Goth
     <div id="sTitle">やさい もってって！</div>
     <div id="sSub">はたけに どうぶつが きたら タッチ！<br>やさいを もって いくよ</div>
     <div id="sGo">▶ タップで はじめる</div>
-    <div id="hint">音が出ないときは、消音（マナーモード）をオフにして音量を上げてください。<br>右上のボタンは長押しで切りかわります（音楽：のはら → モーツァルト → なし）。</div>
+    <div id="hint">音が出ないときは、消音（マナーモード）をオフにして音量を上げてください。<br>右上のボタンは長押しで切りかわります（音楽の切りかえ）。</div>
   </div>
 </div>
 </div>
@@ -332,7 +333,7 @@ var AC = window.AudioContext || window.webkitAudioContext;
 var ctx = null, master = null, sfxBus = null, bgmBus = null, unlocked = false, noiseBuf = null;
 var VOLS = [0.35, 0.65, 1.0], VOL_ICON = ['🔈', '🔉', '🔊'], VOL_NAME = ['ちいさい', 'ふつう', 'おおきい'], volIdx = 1, bgmSel = 'nohara';
 try { var sv = localStorage.getItem('yasai-vol'); if (sv !== null && VOLS[+sv] !== undefined) volIdx = +sv; } catch (e) {}
-try { var sb = localStorage.getItem('yasai-bgm'); if (sb === '0' || sb === 'off') bgmSel = 'off'; else if (sb === 'k545') bgmSel = 'k545'; } catch (e) {}
+try { var sb = localStorage.getItem('yasai-bgm'); if (sb === '0' || sb === 'off') bgmSel = 'off'; else if (sb) bgmSel = sb; } catch (e) {}
 function unlock() {
   if (!AC) return;
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e0) {}
@@ -409,16 +410,24 @@ var SONGS = {};
     else noise(t, 0.04, 0.05, 6000, bus);
   } };
 })();
-/* モーツァルト ピアノソナタ ハ長調 K.545 第1楽章（music.js）。右手は矩形波＋三角波、左手は三角波 */
-if (window.MUSIC && window.MUSIC.k545) {
-  var MZ = window.MUSIC.k545;
-  SONGS.k545 = { bpm: MZ.bpm, div: MZ.div, end: MZ.end, gap: MZ.div * 2, notes: MZ.notes, inst: function (bus, t, d, n, v, voice) {
-    var dd = Math.max(0.06, d * 0.92), k = 0.55 + 0.45 * v / 127;
-    if (voice === 0) { tone(bus, 'square', mtof(n), t, dd, 0.045 * k); tone(bus, 'triangle', mtof(n), t, dd, 0.07 * k); }
-    else tone(bus, 'triangle', mtof(n), t, dd, 0.13 * k);
-  } };
+/* クラシック（music.js）。主旋律は矩形波＋三角波、第2旋律は細めの矩形波、内声と低音は三角波 */
+function classicInst(bus, t, d, n, v, voice) {
+  var dd = Math.max(0.06, d * 0.92), k = 0.55 + 0.45 * v / 127;
+  if (voice === 0) { tone(bus, 'square', mtof(n), t, dd, 0.045 * k); tone(bus, 'triangle', mtof(n), t, dd, 0.07 * k); }
+  else if (voice === 4) tone(bus, 'square', mtof(n), t, dd, 0.025 * k);
+  else if (voice === 3) tone(bus, 'triangle', mtof(n), t, dd, 0.06 * k);
+  else tone(bus, 'triangle', mtof(n), t, dd, 0.13 * k);
 }
-var BGM_ORDER = ['nohara', 'k545', 'off'], BGM_NAME = { nohara: '♪ のはら', k545: '♪ モーツァルト', off: '♪ なし' };
+if (window.MUSIC) for (var mk in window.MUSIC) if (window.MUSIC.hasOwnProperty(mk)) {
+  var MZ = window.MUSIC[mk];
+  SONGS[mk] = { bpm: MZ.bpm, div: MZ.div, end: MZ.end, gap: MZ.gap, notes: MZ.notes, inst: classicInst };
+}
+var BGM_ORDER = ['nohara', 'k545', 'turuko', 'queen', 'fuyu', 'netsujo', 'kankan', 'kumabachi', 'off'];
+/* ボタンに出す名前：[曲名, 作曲者] */
+var BGM_NAME = { nohara: ['のはら', 'オリジナル'], k545: ['ピアノソナタ K.545', 'モーツァルト'], turuko: ['トルコ行進曲', 'モーツァルト'],
+  queen: ['夜の女王のアリア', 'モーツァルト'], netsujo: ['ピアノソナタ「熱情」第3楽章', 'ベートーヴェン'], fuyu: ['四季より「冬」', 'ヴィヴァルディ'], kankan: ['天国と地獄', 'オッフェンバック'],
+  kumabachi: ['熊蜂の飛行', 'リムスキー＝コルサコフ'], off: ['なし', ''] };
+if (bgmSel !== 'off' && !SONGS[bgmSel]) bgmSel = 'nohara';
 var song = null, songPos = 0, songT0 = 0, songGain = null, bgmTimer = null;
 function songStart(name) {
   if (songGain) {
@@ -452,7 +461,11 @@ function startBgm() {
 
 /* ---------- 右上のボタン（長押しで切りかえ） ---------- */
 function showVol() { $('volText').textContent = VOL_ICON[volIdx] + ' ' + VOL_NAME[volIdx]; }
-function showBgm() { $('bgmText').textContent = BGM_NAME[bgmSel]; $('bgm').className = 'pill win' + (bgmSel === 'off' ? ' off' : ''); }
+function showBgm() {
+  var nm = BGM_NAME[bgmSel], el = $('bgmText');
+  el.textContent = '♪ ' + nm[0];
+  if (nm[1]) { var sm = document.createElement('small'); sm.textContent = '  ' + nm[1]; el.appendChild(sm); }
+  $('bgm').className = 'pill win' + (bgmSel === 'off' ? ' off' : ''); }
 var holdTimer = null, holdEl = null;
 function holdPress(el) {
   if (holdTimer) return;
@@ -467,7 +480,7 @@ function holdPress(el) {
     } else {
       var bi = 0; for (var q = 0; q < BGM_ORDER.length; q++) if (BGM_ORDER[q] === bgmSel) bi = q;
       bgmSel = BGM_ORDER[(bi + 1) % BGM_ORDER.length];
-      if (bgmSel === 'k545' && !SONGS.k545) bgmSel = 'off';
+      while (bgmSel !== 'off' && !SONGS[bgmSel]) bgmSel = BGM_ORDER[(++bi + 1) % BGM_ORDER.length];
       showBgm();
       try { localStorage.setItem('yasai-bgm', bgmSel); } catch (e) {}
       if (started) songStart(bgmSel);
