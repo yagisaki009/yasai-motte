@@ -422,11 +422,11 @@ if (window.MUSIC) for (var mk in window.MUSIC) if (window.MUSIC.hasOwnProperty(m
   var MZ = window.MUSIC[mk];
   SONGS[mk] = { bpm: MZ.bpm, div: MZ.div, end: MZ.end, gap: MZ.gap, notes: MZ.notes, inst: classicInst };
 }
-var BGM_ORDER = ['nohara', 'k545', 'turuko', 'queen', 'fuyu', 'netsujo', 'kankan', 'kumabachi', 'off'];
+var BGM_ORDER = ['nohara', 'k545', 'turuko', 'queen', 'fuyu', 'netsujo', 'tell', 'kumabachi', 'raimei', 'kankan', 'off'];
 /* ボタンに出す名前：[曲名, 作曲者] */
 var BGM_NAME = { nohara: ['のはら', 'オリジナル'], k545: ['ピアノソナタ K.545', 'モーツァルト'], turuko: ['トルコ行進曲', 'モーツァルト'],
-  queen: ['夜の女王のアリア', 'モーツァルト'], netsujo: ['ピアノソナタ「熱情」第3楽章', 'ベートーヴェン'], fuyu: ['四季より「冬」', 'ヴィヴァルディ'], kankan: ['天国と地獄', 'オッフェンバック'],
-  kumabachi: ['熊蜂の飛行', 'リムスキー＝コルサコフ'], off: ['なし', ''] };
+  queen: ['夜の女王のアリア', 'モーツァルト'], netsujo: ['ピアノソナタ「熱情」第3楽章', 'ベートーヴェン'], tell: ['ウィリアム・テル序曲 スイス軍の行進', 'ロッシーニ'], fuyu: ['四季より「冬」', 'ヴィヴァルディ'], kankan: ['天国と地獄', 'オッフェンバック'],
+  kumabachi: ['熊蜂の飛行', 'リムスキー＝コルサコフ'], raimei: ['ポルカ「雷鳴と電光」', 'J.シュトラウス2世'], off: ['なし', ''] };
 if (bgmSel !== 'off' && !SONGS[bgmSel]) bgmSel = 'nohara';
 var song = null, songPos = 0, songT0 = 0, songGain = null, bgmTimer = null;
 function songStart(name) {
