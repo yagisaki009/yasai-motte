@@ -211,7 +211,7 @@ function tapAt(wx, wy) {
     var a = animals[i], dx = a.x - wx, dy = (a.y - a.K.h / 2) - wy, d = dx * dx + dy * dy;
     if (d < bd) { bd = d; best = a; }
   }
-  if (!best) { puff(wx, wy); sfxPuff(); return; }
+  if (!best) { missAt(wx, wy); return; }
   var a2 = best;
   if (a2.state === 'run' && inField(a2)) {
     /* せいこう！ はたけのやさいを持っていく */
@@ -256,6 +256,7 @@ function update(dt) {
     var sp = spots[i];
     if (!sp.veg) { sp.regrow -= dt; if (sp.regrow <= 0) { sp.veg = pick(A.yasai); sp.grow = 0.01; } }
     if (sp.grow > 0) { sp.grow += dt; if (sp.grow > 0.35) sp.grow = 0; }
+    if (sp.wob > 0) { sp.wob += dt; if (sp.wob > 0.5) sp.wob = 0; }
   }
   for (i = fxs.length - 1; i >= 0; i--) {
     var f = fxs[i]; f.t += dt;
@@ -263,6 +264,9 @@ function update(dt) {
     else if (f.type === 'puff' && f.t > 0.4) fxs.splice(i, 1);
     else if (f.type === 'heart' && f.t > 0.8) fxs.splice(i, 1);
     else if (f.type === 'fly' && f.t > f.dur) fxs.splice(i, 1);
+    else if (f.type === 'leaf') { f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 90 * dt; if (f.t > 0.7) fxs.splice(i, 1); }
+    else if (f.type === 'ripple' && f.t > 0.7) fxs.splice(i, 1);
+    else if (f.type === 'onpu' && f.t > 0.8) fxs.splice(i, 1);
   }
 }
 
@@ -290,7 +294,8 @@ function render() {
       var sp = list[i].s;
       if (sp.veg) {
         var gy = sp.grow > 0 ? Math.round((1 - sp.grow / 0.35) * 4) : 0;
-        drawVegAt(sp.veg, sp.x, sp.y + gy);
+        var wx2 = sp.wob > 0 ? Math.round(Math.sin(sp.wob * 40) * 2 * (1 - sp.wob / 0.5)) : 0;
+        drawVegAt(sp.veg, sp.x + wx2, sp.y + gy - (sp.wob > 0 && sp.wob < 0.15 ? 2 : 0));
       } else drawVegAt('me', sp.x, sp.y);
       continue;
     }
@@ -316,6 +321,18 @@ function render() {
       blit(IMG[f.t < 0.35 ? 'hoshi1' : 'hoshi2'], Math.round(f.x - 2), Math.round(f.y - 2));
     } else if (f.type === 'puff') {
       blit(IMG[f.t < 0.2 ? 'kemuri1' : 'kemuri2'], Math.round(f.x - 3), Math.round(f.y - 2 - f.t * 8));
+    } else if (f.type === 'leaf') {
+      lg.fillStyle = f.col; lg.fillRect(Math.round(f.x - camX), Math.round(f.y - camY), 1, 1);
+    } else if (f.type === 'ripple') {
+      /* 水の輪（ドットの楕円）が広がる */
+      var rr = 2 + f.t * 16, ry = rr * 0.45, n = Math.max(10, Math.round(rr * 2.2));
+      lg.fillStyle = f.t < 0.4 ? '#e6f6ff' : '#a6dcf6';
+      for (var a = 0; a < n; a++) {
+        var ang = a / n * Math.PI * 2;
+        lg.fillRect(Math.round(f.x + Math.cos(ang) * rr - camX), Math.round(f.y + Math.sin(ang) * ry - camY), 1, 1);
+      }
+    } else if (f.type === 'onpu') {
+      if (f.t < 0.6 || Math.floor(f.t * 12) % 2 === 0) blit(IMG.onpu, Math.round(f.x - 3 + Math.sin(f.t * 8) * 2), Math.round(f.y - 8 - f.t * 14));
     } else if (f.type === 'heart') {
       if (Math.floor(f.t * 8) % 2 === 0 || f.t < 0.4) blit(IMG.haato, Math.round(f.x - 3), Math.round(f.y - f.t * 10));
     }
@@ -393,6 +410,108 @@ function noise(t, dur, vol, freq, bus) {
   s.connect(f); f.connect(gn); gn.connect(bus || sfxBus); s.start(t); s.stop(t + dur + 0.02);
 }
 function T() { return ctx ? ctx.currentTime + 0.01 : 0; }
+/* ---------- 何もない所をタッチ：場所ごとにちがう音（タッチした位置で音の高さも変わる） ---------- */
+/* 場所の種類 0=草 1=道 2=畑のうね 3=畑のみぞ 4=柵 5=木の葉 6=木のみき 7=池の水 8=池のふちの石 9=はすの葉
+   10=岩 11=しげみ 12=花 13=小屋の屋根 14=小屋のかべ・戸 15=小屋のまど 16=かかし */
+var MATS = (function () {
+  var r = A.mat, a = window.Uint8Array ? new Uint8Array(BW * BH) : [], p = 0;
+  for (var i = 0; i < r.length; i += 2) for (var j = 0; j < r[i + 1]; j++) a[p++] = r[i];
+  return a;
+})();
+function matAt(x, y) {
+  x = Math.round(x); y = Math.round(y);
+  if (x < 0 || y < 0 || x >= BW || y >= BH) return 0;
+  return MATS[y * BW + x];
+}
+/* 画面の左→右で ドレミソラ と上がり、上へ行くほど高くなる（ペンタトニックなので、どこを鳴らしても合う） */
+var PENTA = [0, 2, 4, 7, 9];
+function posNote(wx, wy, base) {
+  var fx = Math.max(0, Math.min(0.999, (wx - camX) / LW)), fy = Math.max(0, Math.min(0.999, 1 - (wy - camY) / LH));
+  var i = Math.floor(fx * 10) + Math.floor(fy * 5);
+  return base + PENTA[i % 5] + 12 * Math.floor(i / 5);
+}
+function bandNoise(t, dur, vol, freq, q, type) {
+  if (!ctx) return;
+  var s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), gn = ctx.createGain();
+  s.buffer = noiseBuf; f.type = type || 'bandpass'; f.frequency.value = freq; try { f.Q.value = q || 1; } catch (e) {}
+  gn.gain.setValueAtTime(0.0001, t); gn.gain.linearRampToValueAtTime(vol, t + 0.01);
+  gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f); f.connect(gn); gn.connect(sfxBus); s.start(t); s.stop(t + dur + 0.02);
+}
+var VEG_NOTE = { kabocha: 48, suika: 50, kyabetsu: 55, kabu: 60, tamanegi: 62, ringo: 67, orenji: 69, tomato: 72 };
+var LEAF_COL = ['#79bd4a', '#4f9334', '#95d062', '#3b863a'];
+function leaves(x, y, n, cols) {
+  for (var k = 0; k < n; k++) fxs.push({ type: 'leaf', x: x + rand(-2, 2), y: y + rand(-2, 1), vx: rand(-22, 22), vy: rand(-55, -25), t: 0, col: pick(cols || LEAF_COL) });
+}
+function missAt(wx, wy) {
+  /* はたけのやさい（動物がいない所）：ぷるんとゆれて、やさいごとの音 */
+  for (var i = 0; i < spots.length; i++) {
+    var sp = spots[i];
+    if (Math.abs(wx - sp.x) <= 6 && wy >= sp.y - 11 && wy <= sp.y + 2) {
+      if (sp.veg) {
+        sp.wob = 0.01;
+        if (ctx) { var t0 = T(), f0 = mtof(VEG_NOTE[sp.veg] || 60); tone(sfxBus, 'sine', f0, t0, 0.14, 0.35, f0 * 1.6); tone(sfxBus, 'triangle', f0 * 2, t0, 0.06, 0.08); }
+        fxs.push({ type: 'onpu', x: sp.x + 4, y: sp.y - 8, t: 0 });
+      } else {
+        if (ctx) tone(sfxBus, 'sine', 1400, T(), 0.06, 0.12, 2200);
+        leaves(sp.x, sp.y - 2, 3);
+      }
+      return;
+    }
+  }
+  var m = matAt(wx, wy), t = T(), fx = Math.max(0, Math.min(1, (wx - camX) / LW)), fy = Math.max(0, Math.min(1, (wy - camY) / LH));
+  var n = function (base) { return mtof(posNote(wx, wy, base)); };
+  if (m === 0) {            /* 草：さわっ（右へ行くほど明るい音）。小さな音程つき */
+    if (ctx) { bandNoise(t, 0.13, 0.28, 2200 + fx * 3200, 1.2); tone(sfxBus, 'sine', n(79), t, 0.08, 0.035); }
+    leaves(wx, wy, 4);
+  } else if (m === 1) {     /* 道：ざっ */
+    if (ctx) { noise(t, 0.11, 0.35, 600 + fx * 700); tone(sfxBus, 'triangle', n(43), t, 0.09, 0.22, n(43) * 0.6); }
+    puff(wx, wy);
+  } else if (m === 2 || m === 3) {   /* 畑：ぼすっ（みぞは低い） */
+    if (ctx) { noise(t, 0.14, 0.35, m === 2 ? 450 : 300); tone(sfxBus, 'sine', n(m === 2 ? 40 : 33), t, 0.13, 0.32, n(m === 2 ? 40 : 33) * 0.55); }
+    puff(wx, wy);
+  } else if (m === 4) {     /* 柵：コッ（木の音） */
+    if (ctx) { tone(sfxBus, 'triangle', n(67), t, 0.07, 0.32); bandNoise(t, 0.025, 0.2, 3500, 2, 'highpass'); }
+    fxs.push({ type: 'onpu', x: wx, y: wy, t: 0 });
+  } else if (m === 5) {     /* 木の葉：ざわざわ。ときどき小鳥 */
+    if (ctx) { bandNoise(t, 0.3, 0.3, 1600 + fx * 1600, 0.8); bandNoise(t + 0.12, 0.25, 0.2, 2200 + fx * 1600, 0.8);
+      if (Math.random() < 0.4) { var b = n(86); tone(sfxBus, 'sine', b, t + 0.15, 0.06, 0.1, b * 1.5); tone(sfxBus, 'sine', b, t + 0.25, 0.06, 0.1, b * 1.5); } }
+    leaves(wx, wy, 7);
+  } else if (m === 6) {     /* みき：ドン */
+    if (ctx) { tone(sfxBus, 'triangle', n(50), t, 0.1, 0.38, n(50) * 0.8); noise(t, 0.03, 0.2, 1500); }
+    fxs.push({ type: 'onpu', x: wx, y: wy, t: 0 }); leaves(wx, wy - 10, 3);
+  } else if (m === 7) {     /* 池：ぽちゃん（場所で高さが変わる） */
+    if (ctx) { var w = n(67); tone(sfxBus, 'sine', w * 1.9, t, 0.15, 0.32, w); bandNoise(t, 0.08, 0.1, 5000, 1, 'highpass'); }
+    fxs.push({ type: 'ripple', x: wx, y: wy, t: 0 });
+  } else if (m === 8) {     /* 池のふちの石：カチ */
+    if (ctx) { tone(sfxBus, 'square', n(84), t, 0.03, 0.1); bandNoise(t, 0.02, 0.15, 5000, 1, 'highpass'); }
+    star(wx, wy - 2);
+  } else if (m === 9) {     /* はすの葉：ぺちょ */
+    if (ctx) { var l = n(57); tone(sfxBus, 'sine', l, t, 0.09, 0.3, l * 1.4); bandNoise(t, 0.04, 0.08, 3000, 1); }
+    fxs.push({ type: 'ripple', x: wx, y: wy + 1, t: 0.15 });
+  } else if (m === 10) {    /* 岩：コツン */
+    if (ctx) { tone(sfxBus, 'square', n(76), t, 0.035, 0.13); tone(sfxBus, 'triangle', n(88), t + 0.005, 0.05, 0.12); }
+    star(wx, wy - 2);
+  } else if (m === 11) {    /* しげみ：がさっ */
+    if (ctx) { bandNoise(t, 0.2, 0.32, 1100 + fx * 1300, 1); tone(sfxBus, 'sine', n(67), t, 0.06, 0.03); }
+    leaves(wx, wy, 6);
+  } else if (m === 12) {    /* 花：ちりん（場所でドレミが変わる） */
+    if (ctx) { var f1 = n(81); tone(sfxBus, 'sine', f1, t, 0.7, 0.14); tone(sfxBus, 'sine', f1 * 2.76, t, 0.25, 0.04); }
+    star(wx, wy - 3); leaves(wx, wy, 3, ['#ff9cc0', '#ffe45c', '#fffaf0', '#8cb4ff']);
+  } else if (m === 13) {    /* 屋根：ポコ */
+    if (ctx) { tone(sfxBus, 'triangle', n(64), t, 0.06, 0.32); tone(sfxBus, 'square', n(76), t, 0.025, 0.05); }
+    fxs.push({ type: 'onpu', x: wx, y: wy, t: 0 });
+  } else if (m === 14) {    /* かべ・戸：コンコン */
+    if (ctx) { var k1 = n(55); tone(sfxBus, 'triangle', k1, t, 0.06, 0.36); tone(sfxBus, 'triangle', k1, t + 0.14, 0.06, 0.32); noise(t, 0.02, 0.15, 2000); noise(t + 0.14, 0.02, 0.15, 2000); }
+    fxs.push({ type: 'onpu', x: wx, y: wy, t: 0 });
+  } else if (m === 15) {    /* まど：チン */
+    if (ctx) { var g1 = n(93); tone(sfxBus, 'sine', g1, t, 0.45, 0.12); tone(sfxBus, 'sine', g1 * 2.4, t, 0.2, 0.04); }
+    star(wx, wy - 2); star(wx + 2, wy);
+  } else {                  /* かかし：ぼよーん */
+    if (ctx) { var h1 = n(55); tone(sfxBus, 'sine', h1, t, 0.12, 0.3, h1 * 1.3); tone(sfxBus, 'sine', h1 * 1.3, t + 0.12, 0.12, 0.25, h1 * 0.9); tone(sfxBus, 'sine', h1 * 0.9, t + 0.24, 0.18, 0.2, h1 * 1.1); }
+    fxs.push({ type: 'onpu', x: wx, y: wy, t: 0 });
+  }
+}
 function sfxPuff() { if (!ctx) return; var t = T(); noise(t, 0.16, 0.35, 900); tone(sfxBus, 'triangle', 180, t, 0.1, 0.25, 90); }
 function sfxHop() { if (!ctx) return; tone(sfxBus, 'square', 330, T(), 0.16, 0.12, 880); }
 /* やさいをとったときの音（ピロリン・ファンファーレ）は控えめに：もとの5分の1 */
@@ -654,6 +773,7 @@ window.__yasai = {
   state: function () { return { animals: animals.map(function (a) { return { kind: a.kind, x: Math.round(a.x), y: Math.round(a.y), state: a.state, inField: inField(a), veg: a.veg }; }), given: given, LW: LW, LH: LH, SC: SC, cam: [camX, camY] }; },
   tapAnimal: function (i) { var a = animals[i]; if (a) tapAt(a.x, a.y - a.K.h / 2); },
   tapWorld: tapAt,
+  mat: matAt,
   bgm: function () { return { sel: bgmSel, playing: !!song, pos: songPos, listOpen: listOpen }; },
   step: function (sec) { for (var t = 0; t < sec; t += 1 / 60) update(1 / 60); render(); }
 };

@@ -1,5 +1,5 @@
 /* オフライン用：一度ひらいたら端末に保存して、電波がなくても動くようにする */
-var CACHE = 'yasai-motte-v7';
+var CACHE = 'yasai-motte-v8';
 var FILES = ['./', 'index.html', 'art.js', 'music.js', 'bg.png', 'manifest.webmanifest', 'icon-180.png', 'icon-512.png'];
 
 self.addEventListener('install', function (e) {
